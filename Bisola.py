@@ -1,0 +1,892 @@
+import streamlit as st
+import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import pandas as pd
+
+# ── 1. PAGE CONFIGURATION (MUST BE FIRST) ───────────────────────────────────
+st.set_page_config(
+    page_title="Inventory Calculator",
+    page_icon="📦",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# ── 2. CUSTOM CSS STYLING ───────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+.main { 
+    background: #0f1117; 
+}
+.stApp {
+    background: linear-gradient(135deg, #0f1117 0%, #1a1d2e 50%, #0f1117 100%);
+}
+
+/* Hero banner */
+.hero-banner {
+    border: 1px solid #3d4a6b;
+    border-radius: 20px;
+    padding: 2.5rem 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.hero-title {
+    font-size: 2.4rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #60a5fa, #a78bfa, #34d399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+.hero-sub {
+    color: #94a3b8;
+    font-size: 1rem;
+    margin-top: 0.5rem;
+}
+
+/* Module cards */
+.module-card {
+    background: #1e2235;
+    border: 1px solid #2d3555;
+    border-radius: 16px;
+    padding: 1.4rem 1.2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 0.5rem;
+}
+.module-card:hover {
+    border-color: #60a5fa;
+    transform: translateY(-2px);
+    background: #1e2a4a;
+}
+.module-card.active {
+    border-color: #60a5fa;
+    background: linear-gradient(135deg, #1e2a4a, #1e2035);
+    box-shadow: 0 0 24px rgba(96,165,250,0.15);
+}
+.module-icon { font-size: 2rem; margin-bottom: 0.4rem; }
+.module-name { font-weight: 600; color: #e2e8f0; font-size: 0.9rem; }
+.module-desc { color: #64748b; font-size: 0.75rem; margin-top: 0.2rem; }
+
+/* Result metric cards */
+.metric-card {
+    background: linear-gradient(135deg, #1e2235, #1a1d2e);
+    border: 1px solid #2d3555;
+    border-radius: 14px;
+    padding: 1.2rem 1rem;
+    text-align: center;
+}
+.metric-label {
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+}
+.metric-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1.1;
+}
+.metric-unit {
+    color: #475569;
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+}
+
+/* Formula trace */
+.formula-box {
+    background: #141624;
+    border: 1px solid #1e2a4a;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+}
+.formula-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #1e2235;
+    font-size: 0.85rem;
+}
+.formula-row:last-child { border-bottom: none; }
+.formula-name { color: #60a5fa; font-family: monospace; }
+.formula-result { color: #34d399; font-weight: 600; }
+
+/* Section headers */
+.section-header {
+    color: #94a3b8;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+/* Input styling override */
+div[data-testid="stNumberInput"] input,
+div[data-testid="stTextInput"] input {
+    background: #1e2235 !important;
+    border: 1px solid #2d3555 !important;
+    border-radius: 10px !important;
+    color: #e2e8f0 !important;
+}
+div[data-testid="stNumberInput"] input:focus,
+div[data-testid="stTextInput"] input:focus {
+    border-color: #60a5fa !important;
+    box-shadow: 0 0 0 2px rgba(96,165,250,0.15) !important;
+}
+
+/* Button */
+div[data-testid="stButton"] button {
+    background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    padding: 0.6rem 2rem !important;
+    font-size: 1rem !important;
+    width: 100% !important;
+    transition: all 0.2s !important;
+}
+div[data-testid="stButton"] button:hover {
+    opacity: 0.9 !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Selectbox */
+div[data-testid="stSelectbox"] > div {
+    background: #1e2235 !important;
+    border-color: #2d3555 !important;
+    border-radius: 10px !important;
+    color: #e2e8f0 !important;
+}
+
+/* Divider */
+hr { border-color: #1e2235 !important; }
+
+/* Tabs */
+div[data-testid="stTabs"] button {
+    color: #64748b !important;
+    font-weight: 500 !important;
+}
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    color: #60a5fa !important;
+    border-bottom-color: #60a5fa !important;
+}
+
+/* Expander */
+details {
+    background: #1e2235 !important;
+    border: 1px solid #2d3555 !important;
+    border-radius: 12px !important;
+}
+
+/* Multiselect tags */
+span[data-testid="stTag"] {
+    background: #1e2a4a !important;
+    color: #60a5fa !important;
+    border: 1px solid #3d5a8a !important;
+    border-radius: 20px !important;
+}
+
+.stAlert {
+    border-radius: 12px !important;
+}
+
+/* Hide default streamlit menu bar branding */
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+header { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
+
+
+# ── 3. HELPER FUNCTIONS ─────────────────────────────────────────────────────
+
+def metric_html(label, value, unit=""):
+    return f"""
+    <div class="metric-card">
+        <div class="metric-label">{label}</div>
+        <div class="metric-value">{value}</div>
+        <div class="metric-unit">{unit}</div>
+    </div>"""
+
+def formula_html(rows):
+    inner = "".join(
+        f'<div class="formula-row"><span class="formula-name">{n}</span><span class="formula-result">{v}</span></div>'
+        for n, v in rows
+    )
+    return f'<div class="formula-box">{inner}</div>'
+
+def cols_metrics(items, ncols=4):
+    cols = st.columns(ncols)
+    for i, (label, value, unit) in enumerate(items):
+        with cols[i % ncols]:
+            st.markdown(metric_html(label, value, unit), unsafe_allow_html=True)
+
+def color_gauge(value, max_val, title, color):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        title={"text": title, "font": {"color": "#94a3b8", "size": 14}},
+        number={"font": {"color": "#e2e8f0", "size": 28}},
+        gauge={
+            "axis": {"range": [0, max_val], "tickcolor": "#475569"},
+            "bar": {"color": color},
+            "bgcolor": "#1e2235",
+            "bordercolor": "#2d3555",
+            "steps": [{"range": [0, max_val], "color": "#141624"}],
+        },
+    ))
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter"},
+        height=220,
+        margin=dict(t=40, b=10, l=20, r=20),
+    )
+    return fig
+
+def bar_chart(labels, values, colors, title, y_label="Value"):
+    fig = go.Figure(go.Bar(
+        x=labels, y=values,
+        marker_color=colors,
+        marker_line_width=0,
+        text=[f"{v:,.0f}" for v in values],
+        textposition="outside",
+        textfont={"color": "#e2e8f0", "size": 13},
+    ))
+    fig.update_layout(
+        title={"text": title, "font": {"color": "#e2e8f0", "size": 16}, "x": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter", "color": "#94a3b8"},
+        yaxis={"title": y_label, "gridcolor": "#1e2235", "color": "#64748b"},
+        xaxis={"color": "#64748b"},
+        height=320,
+        margin=dict(t=50, b=20, l=20, r=20),
+    )
+    return fig
+
+def line_chart(x, y_dict, title, y_label):
+    palette = ["#60a5fa", "#34d399", "#f472b6", "#fb923c", "#a78bfa"]
+    fig = go.Figure()
+    for i, (name, vals) in enumerate(y_dict.items()):
+        fig.add_trace(go.Scatter(
+            x=x, y=vals, name=name,
+            mode="lines+markers",
+            line={"color": palette[i % len(palette)], "width": 2.5},
+            marker={"size": 7},
+        ))
+    fig.update_layout(
+        title={"text": title, "font": {"color": "#e2e8f0", "size": 16}, "x": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter", "color": "#94a3b8"},
+        yaxis={"title": y_label, "gridcolor": "#1e2235", "color": "#64748b"},
+        xaxis={"color": "#64748b"},
+        legend={"bgcolor": "rgba(0,0,0,0)", "bordercolor": "#2d3555"},
+        height=340,
+        margin=dict(t=50, b=20, l=20, r=20),
+    )
+    return fig
+
+def hist_chart(data, mean, title):
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(
+        x=data, nbinsx=max(5, len(data)//2),
+        marker_color="#6366f1", opacity=0.8,
+        name="Demand",
+    ))
+    fig.add_vline(x=mean, line_dash="dash", line_color="#34d399",
+                  annotation_text=f"μ = {mean:.1f}", annotation_font_color="#34d399")
+    fig.update_layout(
+        title={"text": title, "font": {"color": "#e2e8f0", "size": 16}, "x": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter", "color": "#94a3b8"},
+        yaxis={"title": "Frequency", "gridcolor": "#1e2235", "color": "#64748b"},
+        xaxis={"title": "Demand (units)", "color": "#64748b"},
+        height=300,
+        margin=dict(t=50, b=20, l=20, r=20),
+    )
+    return fig
+
+
+# ── 4. APP STATE & CONFIGURATION ───────────────────────────────────────────
+
+if "module" not in st.session_state:
+    st.session_state.module = None
+
+MODULES = [
+    ("📊", "Mean, Variance & SD",  "Demand statistics",     "stats"),
+    ("🛡️", "Safety Stock",         "Buffer inventory",      "ss"),
+    ("🔄", "Reorder Point",        "When to reorder",       "rop"),
+    ("📦", "EOQ",                  "Optimal order qty",     "eoq"),
+    ("💰", "Total Cost",           "Full inventory cost",   "tc"),
+    ("🎯", "Service Level",        "Stock-out protection",  "sl"),
+    ("🚀", "Calculate all",    "Calculate everything",  "all"),
+]
+
+
+# ── 5. HEADER HERO ──────────────────────────────────────────────────────────
+
+st.markdown("""
+<div class="hero-banner">
+    <div class="hero-title">📦 Inventory Management Calculator</div>
+    <div class="hero-sub">Stochastic demand modelling · EOQ · Safety stock · Reorder point · Total cost</div>
+</div>
+""", unsafe_allow_html=True)
+
+# UPDATED LINE TEXT REQUESTED BY USER
+st.markdown('<div class="section-header">Please choose what you want to calculate</div>', unsafe_allow_html=True)
+
+
+# ── 6. NAVIGATION PANEL ─────────────────────────────────────────────────────
+
+cols = st.columns(7)
+for i, (icon, name, desc, mid) in enumerate(MODULES):
+    with cols[i]:
+        active = st.session_state.module == mid
+        border = "border: 2px solid #60a5fa;" if active else ""
+        bg = "background: linear-gradient(135deg,#1e2a4a,#1e2035);" if active else ""
+        st.markdown(f"""
+        <div class="module-card" style="{border}{bg}">
+            <div class="module-icon">{icon}</div>
+            <div class="module-name">{name}</div>
+            <div class="module-desc">{desc}</div>
+        </div>""", unsafe_allow_html=True)
+        if st.button(f"Open", key=f"btn_{mid}", use_container_width=True):
+            st.session_state.module = mid
+            st.rerun()
+
+st.markdown("---")
+
+
+# ── 7. CALCULATOR PAGES ─────────────────────────────────────────────────────
+
+mod = st.session_state.module
+
+if mod is None:
+    st.markdown("""
+    <div style="text-align:center; padding: 4rem 0; color: #475569;">
+        <div style="font-size:3rem; margin-bottom:1rem">👆</div>
+        <div style="font-size:1.1rem; font-weight:500; color:#64748b">Select a calculator above to begin</div>
+        <div style="font-size:0.85rem; margin-top:0.5rem; color:#334155">Each module calculates a specific inventory formula</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+elif mod == "stats":
+    st.markdown("### 📊 Mean, Variance & Standard Deviation")
+    st.markdown("Enter your demand observations to compute key statistical measures.")
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        raw = st.text_area(
+            "Demand values (comma-separated)",
+            value="40, 55, 60, 35, 70, 50, 65, 45, 80, 58, 42, 67",
+            height=120,
+            help="Type or paste daily demand values separated by commas",
+        )
+        calculate = st.button("Calculate Statistics", key="calc_stats")
+
+    with col2:
+        if calculate:
+            try:
+                data = [float(x.strip()) for x in raw.split(",") if x.strip()]
+                if len(data) < 2:
+                    st.error("Please enter at least 2 values.")
+                else:
+                    n = len(data)
+                    mu = np.mean(data)
+                    variance = np.var(data)
+                    sigma = np.std(data)
+
+                    st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
+                    cols_metrics([
+                        ("Mean (μ)",          f"{mu:.2f}",       "units/day"),
+                        ("Variance (σ²)",     f"{variance:.2f}", "units²"),
+                        ("Std deviation (σ)", f"{sigma:.2f}",    "units/day"),
+                        ("Observations (n)",  str(n),            "data points"),
+                    ])
+
+                    st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
+                    sample_str = " + ".join(f"{x:.0f}" for x in data[:4])
+                    if n > 4: sample_str += " + ..."
+                    st.markdown(formula_html([
+                        ("μ = Σx / n",        f"{sample_str} / {n} = {mu:.2f}"),
+                        ("σ² = Σ(x−μ)² / n", f"{variance:.4f}"),
+                        ("σ = √σ²",           f"√{variance:.2f} = {sigma:.2f}"),
+                        ("D ~ N(μ, σ²)",      f"N({mu:.2f}, {variance:.2f})"),
+                    ]), unsafe_allow_html=True)
+
+                    st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.plotly_chart(hist_chart(data, mu, "Demand distribution"), use_container_width=True)
+                    with c2:
+                        sessions = list(range(1, n + 1))
+                        cum_mean = [np.mean(data[:i]) for i in range(1, n + 1)]
+                        st.plotly_chart(line_chart(sessions, {"Cumulative mean": cum_mean},
+                            "Convergence of mean", "Mean demand"), use_container_width=True)
+            except Exception as e:
+                st.error(f"Error parsing values: {e}")
+        else:
+            st.info("👈 Enter your demand values and click **Calculate Statistics**")
+
+# ─────────────────────────────────────────────────────────────────────────────
+elif mod == "ss":
+    st.markdown("### 🛡️ Safety Stock")
+    st.markdown("Calculate the extra inventory needed to protect against demand uncertainty.")
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        sigma = st.number_input("Std deviation (σ)", min_value=0.0, value=12.5, step=0.5,
+                                help="Daily demand standard deviation")
+        lead  = st.number_input("Lead time (days, L)", min_value=1, value=5, step=1)
+        z     = st.selectbox("Service level",
+                             options=[1.28, 1.65, 1.96, 2.33],
+                             index=1,
+                             format_func=lambda x: {1.28:"90% (z=1.28)",1.65:"95% (z=1.65)",1.96:"97.5% (z=1.96)",2.33:"99% (z=2.33)"}[x])
+        calculate = st.button("Calculate Safety Stock", key="calc_ss")
+
+    with col2:
+        if calculate:
+            sigma_L = sigma * np.sqrt(lead)
+            ss      = z * sigma_L
+            pct     = {1.28:90, 1.65:95, 1.96:97.5, 2.33:99}[z]
+
+            st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
+            cols_metrics([
+                ("Safety stock",    f"{ss:.1f}",       "units"),
+                ("σ√L",             f"{sigma_L:.2f}",  "units"),
+                ("Service level",   f"{pct}%",         ""),
+                ("Lead time",       str(lead),         "days"),
+            ])
+
+            st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
+            st.markdown(formula_html([
+                ("σ√L",         f"{sigma} × √{lead} = {sigma_L:.2f}"),
+                ("SS = z·σ√L",  f"{z} × {sigma_L:.2f} = {ss:.1f} units"),
+            ]), unsafe_allow_html=True)
+
+            st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.plotly_chart(color_gauge(ss, ss * 2, "Safety stock (units)", "#6366f1"),
+                                use_container_width=True)
+            with c2:
+                z_vals  = [1.28, 1.65, 1.96, 2.33]
+                ss_vals = [zv * sigma * np.sqrt(lead) for zv in z_vals]
+                lbls    = ["90%", "95%", "97.5%", "99%"]
+                clrs    = ["#6366f1" if zv == z else "#2d3555" for zv in z_vals]
+                st.plotly_chart(bar_chart(lbls, ss_vals, clrs,
+                    "Safety stock by service level", "Units"), use_container_width=True)
+        else:
+            st.info("👈 Fill the inputs and click **Calculate Safety Stock**")
+
+# ─────────────────────────────────────────────────────────────────────────────
+elif mod == "rop":
+    st.markdown("### 🔄 Reorder Point")
+    st.markdown("Find the inventory level at which a new order should be triggered.")
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        mu    = st.number_input("Mean daily demand (μ)", min_value=0.0, value=50.0, step=1.0)
+        sigma = st.number_input("Std deviation (σ)",     min_value=0.0, value=12.5, step=0.5)
+        lead  = st.number_input("Lead time (days, L)",   min_value=1,   value=5,   step=1)
+        z     = st.selectbox("Service level",
+                             options=[1.28, 1.65, 1.96, 2.33], index=1,
+                             format_func=lambda x: {1.28:"90%",1.65:"95%",1.96:"97.5%",2.33:"99%"}[x],
+                             key="rop_sl")
+        calculate = st.button("Calculate Reorder Point", key="calc_rop")
+
+    with col2:
+        if calculate:
+            sigma_L = sigma * np.sqrt(lead)
+            ss      = z * sigma_L
+            demand_during_lt = mu * lead
+            rop     = demand_during_lt + ss
+
+            st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
+            cols_metrics([
+                ("Reorder point",     f"{rop:.1f}",           "units"),
+                ("Safety stock",      f"{ss:.1f}",            "units"),
+                ("Demand during LT",  f"{demand_during_lt:.1f}", "units"),
+                ("Lead time",         str(lead),              "days"),
+            ])
+
+            st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
+            st.markdown(formula_html([
+                ("μ × L (demand during LT)", f"{mu} × {lead} = {demand_during_lt:.1f}"),
+                ("SS = z·σ√L",               f"{z} × {sigma_L:.2f} = {ss:.1f}"),
+                ("R = μL + SS",              f"{demand_during_lt:.1f} + {ss:.1f} = {rop:.1f} units"),
+            ]), unsafe_allow_html=True)
+
+            st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                fig = go.Figure(go.Waterfall(
+                    orientation="v",
+                    measure=["relative", "relative", "total"],
+                    x=["Demand during LT", "Safety stock", "Reorder point"],
+                    y=[demand_during_lt, ss, 0],
+                    connector={"line": {"color": "#2d3555"}},
+                    increasing={"marker": {"color": "#34d399"}},
+                    totals={"marker": {"color": "#60a5fa"}},
+                    text=[f"{demand_during_lt:.1f}", f"{ss:.1f}", f"{rop:.1f}"],
+                    textposition="outside",
+                    textfont={"color": "#e2e8f0"},
+                ))
+                fig.update_layout(
+                    title={"text": "ROP composition", "font": {"color": "#e2e8f0", "size": 16}},
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font={"family": "Inter", "color": "#94a3b8"},
+                    yaxis={"gridcolor": "#1e2235", "color": "#64748b"},
+                    xaxis={"color": "#64748b"},
+                    height=300, margin=dict(t=50, b=20, l=20, r=20),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            with c2:
+                lead_range = list(range(1, 16))
+                rops = [mu * l + z * sigma * np.sqrt(l) for l in lead_range]
+                st.plotly_chart(line_chart(lead_range, {"Reorder point": rops},
+                    "ROP vs lead time", "Units"), use_container_width=True)
+        else:
+            st.info("👈 Fill the inputs and click **Calculate Reorder Point**")
+
+# ─────────────────────────────────────────────────────────────────────────────
+elif mod == "eoq":
+    st.markdown("### 📦 Economic Order Quantity (EOQ)")
+    st.markdown("Find the order quantity that minimises total ordering and holding costs.")
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        d = st.number_input("Mean daily demand (d)",        min_value=0.0, value=50.0,  step=1.0)
+        S = st.number_input("Ordering cost per order (₦)", min_value=0.0, value=5000.0, step=100.0)
+        H = st.number_input("Holding cost per unit/yr (₦)",min_value=0.0, value=20.0,  step=1.0)
+        calculate = st.button("Calculate EOQ", key="calc_eoq")
+
+    with col2:
+        if calculate:
+            if H == 0:
+                st.error("Holding cost cannot be zero.")
+            else:
+                D      = d * 365
+                eoq    = np.sqrt((2 * D * S) / H)
+                orders = D / eoq
+                hc     = (eoq / 2) * H
+                oc     = orders * S
+                tc     = hc + oc
+
+                st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
+                cols_metrics([
+                    ("EOQ",             f"{eoq:,.0f}",           "units/order"),
+                    ("Annual demand",   f"{D:,.0f}",             "units/year"),
+                    ("Orders per year", f"{orders:.1f}",         "orders"),
+                    ("Min total cost",  f"₦{tc:,.0f}",           ""),
+                ])
+
+                st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
+                st.markdown(formula_html([
+                    ("D = d × 365",          f"{d} × 365 = {D:,.0f}"),
+                    ("EOQ = √(2DS/H)",       f"√(2×{D:,.0f}×{S:,.0f}/{H}) = {eoq:,.1f}"),
+                    ("HC = (Q/2)×H",         f"({eoq:,.0f}/2)×{H} = ₦{hc:,.0f}"),
+                    ("OC = (D/Q)×S",         f"({D:,.0f}/{eoq:,.0f})×{S:,.0f} = ₦{oc:,.0f}"),
+                    ("TC = HC + OC",         f"₦{hc:,.0f} + ₦{oc:,.0f} = ₦{tc:,.0f}"),
+                ]), unsafe_allow_html=True)
+
+                st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
+                c1, c2 = st.columns(2)
+                with c1:
+                    q_range = np.linspace(eoq * 0.2, eoq * 3, 200)
+                    hc_line = (q_range / 2) * H
+                    oc_line = (D / q_range) * S
+                    tc_line = hc_line + oc_line
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=q_range, y=hc_line, name="Holding cost",
+                        line={"color":"#6366f1","width":2}, mode="lines"))
+                    fig.add_trace(go.Scatter(x=q_range, y=oc_line, name="Ordering cost",
+                        line={"color":"#f472b6","width":2}, mode="lines"))
+                    fig.add_trace(go.Scatter(x=q_range, y=tc_line, name="Total cost",
+                        line={"color":"#34d399","width":3}, mode="lines"))
+                    fig.add_vline(x=eoq, line_dash="dash", line_color="#60a5fa",
+                        annotation_text=f"EOQ={eoq:,.0f}", annotation_font_color="#60a5fa")
+                    fig.update_layout(
+                        title={"text":"Cost vs order quantity","font":{"color":"#e2e8f0","size":15}},
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font={"family":"Inter","color":"#94a3b8"},
+                        yaxis={"title":"Cost (₦)","gridcolor":"#1e2235","color":"#64748b"},
+                        xaxis={"title":"Order quantity","color":"#64748b"},
+                        legend={"bgcolor":"rgba(0,0,0,0)"},
+                        height=320, margin=dict(t=50,b=20,l=20,r=20),
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                with c2:
+                    st.plotly_chart(bar_chart(
+                        ["Holding cost","Ordering cost"],
+                        [hc, oc], ["#6366f1","#f472b6"],
+                        "Cost breakdown", "₦"), use_container_width=True)
+        else:
+            st.info("👈 Fill the inputs and click **Calculate EOQ**")
+
+# ─────────────────────────────────────────────────────────────────────────────
+elif mod == "tc":
+    st.markdown("### 💰 Total Inventory Cost")
+    st.markdown("Calculate and break down the full cost of your inventory system.")
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        d     = st.number_input("Mean daily demand (d)",         min_value=0.0, value=50.0,  step=1.0)
+        S     = st.number_input("Ordering cost per order (₦)",  min_value=0.0, value=5000.0, step=100.0)
+        H     = st.number_input("Holding cost per unit/yr (₦)", min_value=0.0, value=20.0,  step=1.0)
+        SC    = st.number_input("Shortage cost per unit (₦)",   min_value=0.0, value=50.0,  step=1.0)
+        sigma = st.number_input("Std deviation (σ)",            min_value=0.0, value=12.5,  step=0.5)
+        lead  = st.number_input("Lead time (days)",             min_value=1,   value=5,     step=1)
+        calculate = st.button("Calculate Total Cost", key="calc_tc")
+
+    with col2:
+        if calculate:
+            if H == 0:
+                st.error("Holding cost cannot be zero.")
+            else:
+                D      = d * 365
+                eoq    = np.sqrt((2 * D * S) / H)
+                orders = D / eoq
+                hc     = (eoq / 2) * H
+                oc     = orders * S
+                shc    = SC * sigma * 0.1 * orders
+                tc     = hc + oc + shc
+
+                st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
+                cols_metrics([
+                    ("Holding cost",  f"₦{hc:,.0f}",  ""),
+                    ("Ordering cost", f"₦{oc:,.0f}",  ""),
+                    ("Shortage cost", f"₦{shc:,.0f}", ""),
+                    ("Total cost",    f"₦{tc:,.0f}",  ""),
+                ])
+
+                st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
+                st.markdown(formula_html([
+                    ("EOQ",               f"{eoq:,.0f} units"),
+                    ("HC = (Q/2)×H",      f"₦{hc:,.0f}"),
+                    ("OC = (D/Q)×S",      f"₦{oc:,.0f}"),
+                    ("SC estimate",       f"₦{shc:,.0f}"),
+                    ("TC = HC + OC + SC", f"₦{tc:,.0f}"),
+                ]), unsafe_allow_html=True)
+
+                st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
+                c1, c2 = st.columns(2)
+                with c1:
+                    fig = go.Figure(go.Pie(
+                        labels=["Holding cost", "Ordering cost", "Shortage cost"],
+                        values=[hc, oc, shc],
+                        hole=0.55,
+                        marker={"colors": ["#6366f1", "#f472b6", "#fb923c"],
+                                "line": {"color": "#0f1117", "width": 2}},
+                        textfont={"color": "#e2e8f0"},
+                    ))
+                    fig.add_annotation(text=f"₦{tc:,.0f}", x=0.5, y=0.5,
+                        showarrow=False, font={"size": 14, "color": "#e2e8f0"})
+                    fig.update_layout(
+                        title={"text": "Cost breakdown", "font": {"color": "#e2e8f0", "size": 15}},
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        font={"family": "Inter", "color": "#94a3b8"},
+                        legend={"bgcolor": "rgba(0,0,0,0)"},
+                        height=320, margin=dict(t=50, b=10, l=10, r=10),
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                with c2:
+                    q_range = np.linspace(eoq * 0.2, eoq * 3, 200)
+                    tc_line = (q_range/2)*H + (D/q_range)*S + SC*sigma*0.1*(D/q_range)
+                    fig2 = go.Figure(go.Scatter(x=q_range, y=tc_line,
+                        line={"color": "#34d399", "width": 2.5}, mode="lines", name="Total cost"))
+                    fig2.add_vline(x=eoq, line_dash="dash", line_color="#60a5fa",
+                        annotation_text=f"EOQ={eoq:,.0f}", annotation_font_color="#60a5fa")
+                    fig2.update_layout(
+                        title={"text":"Total cost curve","font":{"color":"#e2e8f0","size":15}},
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font={"family":"Inter","color":"#94a3b8"},
+                        yaxis={"title":"₦","gridcolor":"#1e2235","color":"#64748b"},
+                        xaxis={"title":"Order qty","color":"#64748b"},
+                        height=320, margin=dict(t=50,b=20,l=20,r=20),
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.info("👈 Fill the inputs and click **Calculate Total Cost**")
+
+# ─────────────────────────────────────────────────────────────────────────────
+elif mod == "sl":
+    st.markdown("### 🎯 Service Level")
+    st.markdown("Understand your stock-out protection and adjust your service level target.")
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        z     = st.slider("Service level factor (z)", min_value=1.0, max_value=3.0,
+                          value=1.65, step=0.01)
+        sigma = st.number_input("Std deviation (σ)", min_value=0.0, value=12.5, step=0.5)
+        lead  = st.number_input("Lead time (days)",  min_value=1,   value=5,    step=1)
+        calculate = st.button("Calculate Service Level", key="calc_sl")
+
+    with col2:
+        if calculate:
+            pct   = min(99.9, round(50 + z * 30, 1)) if z < 2.33 else {2.33:99}.get(z, 99)
+            if z >= 2.33:  pct = 99
+            elif z >= 1.96: pct = 97.5
+            elif z >= 1.65: pct = 95
+            elif z >= 1.28: pct = 90
+            else: pct = round(50 + z * 30, 1)
+            sigma_L = sigma * np.sqrt(lead)
+            ss      = z * sigma_L
+
+            st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
+            cols_metrics([
+                ("Service level",  f"{pct}%",        ""),
+                ("Safety stock",   f"{ss:.1f}",      "units"),
+                ("z factor",       f"{z:.2f}",        ""),
+                ("Stock-out risk", f"{100-pct:.1f}%", ""),
+            ])
+
+            st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
+            st.markdown(formula_html([
+                ("z value",       str(z)),
+                ("Service level", f"≈ {pct}%"),
+                ("SS = z·σ√L",    f"{z} × {sigma_L:.2f} = {ss:.1f} units"),
+                ("Stock-out risk", f"~{100-pct:.1f}%"),
+            ]), unsafe_allow_html=True)
+
+            st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
+            st.plotly_chart(color_gauge(ss, ss * 2, "Safety Stock Allocation", "#34d399"), use_container_width=True)
+        else:
+            st.info("👈 Adjust the slider and click **Calculate Service Level**")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ── NEW MODULE: ALL-IN-ONE MASTER COMPONENT ──────────────────────────────────
+elif mod == "all":
+    st.markdown("### 🚀 Master Inventory Dashboard (All-in-One)")
+    st.markdown("Enter all your core thresholds below to evaluate every single inventory metric at once.")
+
+    # Input Fields Grid Split
+    icol1, icol2, icol3 = st.columns(3)
+    with icol1:
+        mu_all    = st.number_input("Mean daily demand (μ)", min_value=0.0, value=50.0, step=1.0, key="all_mu")
+        sigma_all = st.number_input("Std deviation (σ)",     min_value=0.0, value=12.5, step=0.5, key="all_sigma")
+    with icol2:
+        lead_all  = st.number_input("Lead time (days, L)",   min_value=1,   value=5,    step=1,   key="all_lead")
+        z_all     = st.selectbox("Service level",            options=[1.28, 1.65, 1.96, 2.33], index=1,
+                                 format_func=lambda x: {1.28:"90% (z=1.28)",1.65:"95% (z=1.65)",1.96:"97.5% (z=1.96)",2.33:"99% (z=2.33)"}[x], key="all_z")
+    with icol3:
+        S_all     = st.number_input("Ordering cost per order (₦)", min_value=0.0, value=5000.0, step=100.0, key="all_S")
+        H_all     = st.number_input("Holding cost per unit/yr (₦)",min_value=0.0, value=20.0,  step=1.0,  key="all_H")
+        SC_all    = st.number_input("Shortage cost per unit (₦)",  min_value=0.0, value=50.0,  step=1.0,  key="all_SC")
+
+    calculate_all = st.button("Run Master Calculation", key="calc_all_run")
+
+    if calculate_all:
+        if H_all == 0:
+            st.error("Holding cost cannot be zero for full metric simulation.")
+        else:
+            # 1. Master Logic Compilations
+            D_all = mu_all * 365
+            sigma_L_all = sigma_all * np.sqrt(lead_all)
+            ss_all = z_all * sigma_L_all
+            demand_during_lt_all = mu_all * lead_all
+            rop_all = demand_during_lt_all + ss_all
+            eoq_all = np.sqrt((2 * D_all * S_all) / H_all)
+            orders_all = D_all / eoq_all
+            hc_all = (eoq_all / 2) * H_all
+            oc_all = orders_all * S_all
+            shc_all = SC_all * sigma_all * 0.1 * orders_all
+            tc_all = hc_all + oc_all + shc_all
+            pct_all = {1.28:90, 1.65:95, 1.96:97.5, 2.33:99}[z_all]
+
+            # 2. Primary Outputs Visual Panel
+            st.markdown('<div class="section-header">Primary Optimization Metrics</div>', unsafe_allow_html=True)
+            cols_metrics([
+                ("Economic Order Qty", f"{eoq_all:,.0f}", "units/order"),
+                ("Safety Stock (SS)",  f"{ss_all:.1f}",   "units Buffer"),
+                ("Reorder Point (ROP)",f"{rop_all:.1f}",  "inventory scale"),
+                ("Total Annual Cost",  f"₦{tc_all:,.0f}", "combined system"),
+            ], ncols=4)
+
+            # 3. Operations Support Panel
+            st.markdown('<div class="section-header">Operations Framework Breakdown</div>', unsafe_allow_html=True)
+            cols_metrics([
+                ("Annual Demand Volume", f"{D_all:,.0f}",       "units/year"),
+                ("Orders Placed",        f"{orders_all:.1f}",   "times/year"),
+                ("Lead Time Demand",     f"{demand_during_lt_all:.1f}", "units"),
+                ("Cycle Service Level",  f"{pct_all}%",         f"z={z_all}"),
+            ], ncols=4)
+
+            # 4. Merged Master Visualization Graphics
+            st.markdown('<div class="section-header">System Optimization Visualizations</div>', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                # Continuous Optimization Cost Curves
+                q_range = np.linspace(eoq_all * 0.2, eoq_all * 3, 200)
+                hc_line = (q_range / 2) * H_all
+                oc_line = (D_all / q_range) * S_all
+                tc_line = hc_line + oc_line + (SC_all * sigma_all * 0.1 * (D_all / q_range)) # Fixed parenthesis syntax here
+                fig_all = go.Figure()
+                fig_all.add_trace(go.Scatter(x=q_range, y=hc_line, name="Holding cost", line={"color":"#6366f1","width":2}, mode="lines"))
+                fig_all.add_trace(go.Scatter(x=q_range, y=oc_line, name="Ordering cost", line={"color":"#f472b6","width":2}, mode="lines"))
+                fig_all.add_trace(go.Scatter(x=q_range, y=tc_line, name="Total system", line={"color":"#34d399","width":3}, mode="lines"))
+                fig_all.add_vline(x=eoq_all, line_dash="dash", line_color="#60a5fa", annotation_text=f"EOQ={eoq_all:,.0f}", annotation_font_color="#60a5fa")
+                fig_all.update_layout(
+                    title={"text":"Total Optimization Cost Curves","font":{"color":"#e2e8f0","size":15}},
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font={"family":"Inter","color":"#94a3b8"},
+                    yaxis={"title":"Cost (₦)","gridcolor":"#1e2235","color":"#64748b"},
+                    xaxis={"title":"Order quantity Thresholds","color":"#64748b"},
+                    legend={"bgcolor":"rgba(0,0,0,0)"},
+                    height=320, margin=dict(t=50,b=20,l=20,r=20),
+                )
+                st.plotly_chart(fig_all, use_container_width=True)
+            with c2:
+                # Cascade Waterfall ROP
+                fig_wf = go.Figure(go.Waterfall(
+                    orientation="v",
+                    measure=["relative", "relative", "total"],
+                    x=["Demand during LT", "Safety stock", "Reorder point"],
+                    y=[demand_during_lt_all, ss_all, 0],
+                    connector={"line": {"color": "#2d3555"}},
+                    increasing={"marker": {"color": "#34d399"}},
+                    totals={"marker": {"color": "#60a5fa"}},
+                    text=[f"{demand_during_lt_all:.1f}", f"{ss_all:.1f}", f"{rop_all:.1f}"],
+                    textposition="outside",
+                    textfont={"color": "#e2e8f0"},
+                ))
+                fig_wf.update_layout(
+                    title={"text": "Reorder Point (ROP) Structure Balance", "font": {"color": "#e2e8f0", "size": 16}},
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font={"family": "Inter", "color": "#94a3b8"},
+                    yaxis={"gridcolor": "#1e2235", "color": "#64748b"},
+                    xaxis={"color": "#64748b"},
+                    height=320, margin=dict(t=50, b=20, l=20, r=20),
+                )
+                st.plotly_chart(fig_wf, use_container_width=True)
+
+            # 5. Dropdown Audit Trail formulas 
+            with st.expander("📖 View Consolidated Formula Audit Trail"):
+                st.markdown(formula_html([
+                    ("Annual Demand Volume (D)", f"{mu_all} × 365 = {D_all:,.0f} units/yr"),
+                    ("EOQ Engine = √(2DS/H)", f"√(2 × {D_all:,.0f} × {S_all:,.0f} / {H_all}) = {eoq_all:,.1f} units"),
+                    ("Safety Stock Formula (SS)", f"{z_all} × ({sigma_all} × √{lead_all}) = {ss_all:.1f} units"),
+                    ("Reorder Point Target (ROP)", f"{demand_during_lt_all:.1f} + {ss_all:.1f} = {rop_all:.1f} units"),
+                    ("Consolidated Cost Matrix", f"HC (₦{hc_all:,.0f}) + OC (₦{oc_all:,.0f}) + SC (₦{shc_all:,.0f}) = ₦{tc_all:,.0f}/yr")
+                ]), unsafe_allow_html=True)
+    else:
+        st.info("👈 Complete the global parameter values and click **Run Master Calculation** to get an instant snapshot of your entire optimization portfolio.")
