@@ -1,88 +1,143 @@
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import pandas as pd
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ── 1. APP CONFIGURATION & INITIALIZATION ────────────────────────────────────
+
+# ── 1. PAGE CONFIGURATION (MUST BE FIRST) ───────────────────────────────────
 st.set_page_config(
-    page_title="Inventory Optimization Suite",
+    page_title="Inventory Calculator",
     page_icon="📦",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed",
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ── 2. CUSTOM CSS STYLING ────────────────────────────────────────────────────
+
+# ── 2. CUSTOM CSS STYLING ───────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
-    color: #1e293b;
 }
 
+.main { 
+    background: #f8fafc; 
+}
 .stApp {
-    background: #f8fafc !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%);
 }
 
+/* Hero banner */
 .hero-banner {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #cbd5e1;
     border-radius: 20px;
-    padding: 30px;
+    padding: 2.5rem 2rem;
     text-align: center;
+    margin-bottom: 2rem;
+    background: rgba(255,255,255,0.75);
 }
-
 .hero-title {
-    font-size: 38px;
-    font-weight: 800;
-    color: #1e40af;
+    font-size: 2.4rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #2563eb, #7c3aed, #059669);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     margin: 0;
 }
-
 .hero-sub {
-    color: #64748b;
-    font-size: 16px;
-    font-weight: 500;
+    color: #475569;
+    font-size: 1rem;
+    margin-top: 0.5rem;
 }
 
-.section-header {
-    font-size: 22px;
-    font-weight: 700;
-    color: #0f172a;
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 8px;
-    margin-top: 20px;
-}
-
-.metric-card {
+/* Module cards */
+.module-card {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 1.4rem 1.2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 0.5rem;
+}
+.module-card:hover {
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+    background: #eff6ff;
+}
+.module-card.active {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #eff6ff, #eef2ff);
+    box-shadow: 0 0 24px rgba(59,130,246,0.15);
+}
+.module-icon { font-size: 2rem; margin-bottom: 0.4rem; }
+.module-name { font-weight: 600; color: #0f172a; font-size: 0.9rem; }
+.module-desc { color: #64748b; font-size: 0.75rem; margin-top: 0.2rem; }
+
+/* Result metric cards */
+.metric-card {
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+    border: 1px solid #cbd5e1;
     border-radius: 14px;
-    padding: 20px;
+    padding: 1.2rem 1rem;
     text-align: center;
 }
-
+.metric-label {
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+}
 .metric-value {
-    font-size: 28px;
+    font-size: 1.8rem;
     font-weight: 700;
     color: #0f172a;
+    line-height: 1.1;
 }
-
-.metric-label {
-    font-size: 13px;
-    color: #64748b;
-    text-transform: uppercase;
-    font-weight: 600;
-}
-
 .metric-unit {
-    font-size: 12px;
-    color: #2563eb;
-    font-weight: 500;
+    color: #64748b;
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
 }
 
+/* Formula trace */
+.formula-box {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+}
+.formula-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.85rem;
+}
+.formula-row:last-child { border-bottom: none; }
+.formula-name { color: #2563eb; font-family: monospace; }
+.formula-result { color: #059669; font-weight: 600; }
+
+/* Section headers */
+.section-header {
+    color: #475569;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+/* Input styling override */
 div[data-testid="stNumberInput"] input,
 div[data-testid="stTextInput"] input {
     background: #ffffff !important;
@@ -90,303 +145,273 @@ div[data-testid="stTextInput"] input {
     border-radius: 10px !important;
     color: #0f172a !important;
 }
+div[data-testid="stNumberInput"] input:focus,
+div[data-testid="stTextInput"] input:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15) !important;
+}
 
+/* Button */
 div[data-testid="stButton"] button {
-    background: #2563eb !important;
+    background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
     color: white !important;
     border: none !important;
     border-radius: 12px !important;
     font-weight: 600 !important;
+    padding: 0.6rem 2rem !important;
+    font-size: 1rem !important;
+    width: 100% !important;
+    transition: all 0.2s !important;
+}
+div[data-testid="stButton"] button:hover {
+    opacity: 0.9 !important;
+    transform: translateY(-1px) !important;
 }
 
-.audit-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #ffffff;
+/* Selectbox */
+div[data-testid="stSelectbox"] > div {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    border-radius: 10px !important;
+    color: #0f172a !important;
 }
 
-.audit-table th {
-    background-color: #f1f5f9;
-    color: #0f172a;
-    text-align: left;
-    padding: 10px;
+/* Divider */
+hr { border-color: #e2e8f0 !important; }
+
+/* Tabs */
+div[data-testid="stTabs"] button {
+    color: #64748b !important;
+    font-weight: 500 !important;
+}
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    color: #2563eb !important;
+    border-bottom-color: #2563eb !important;
 }
 
-.audit-table td {
-    padding: 10px;
-    border-bottom: 1px solid #f1f5f9;
-    color: #334155;
+/* Expander */
+details {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 12px !important;
 }
+
+/* Multiselect tags */
+span[data-testid="stTag"] {
+    background: #eff6ff !important;
+    color: #2563eb !important;
+    border: 1px solid #bfdbfe !important;
+    border-radius: 20px !important;
+}
+
+.stAlert {
+    border-radius: 12px !important;
+}
+
+/* Hide default streamlit menu bar branding */
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+header { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ── 3. HELPER RENDERING FUNCTIONS ───────────────────────────────────────────
-def cols_metrics(metric_list, ncols=4):
+
+
+# ── 3. HELPER FUNCTIONS ─────────────────────────────────────────────────────
+
+
+def metric_html(label, value, unit=""):
+    return f"""
+    <div class="metric-card">
+        <div class="metric-label">{label}</div>
+        <div class="metric-value">{value}</div>
+        <div class="metric-unit">{unit}</div>
+    </div>"""
+
+
+def formula_html(rows):
+    inner = "".join(
+        f'<div class="formula-row"><span class="formula-name">{n}</span><span class="formula-result">{v}</span></div>'
+        for n, v in rows
+    )
+    return f'<div class="formula-box">{inner}</div>'
+
+
+def cols_metrics(items, ncols=4):
     cols = st.columns(ncols)
-    for idx, (label, val, unit) in enumerate(metric_list):
-        with cols[idx % ncols]:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">{label}</div>
-                <div class="metric-value">{val}</div>
-                <div class="metric-unit">{unit}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    for i, (label, value, unit) in enumerate(items):
+        with cols[i % ncols]:
+            st.markdown(metric_html(label, value, unit), unsafe_allow_html=True)
 
-def formula_html(steps):
-    html = '<table class="audit-table"><tr><th>Target Identifier</th><th>Calculated Formula Operation Breakdowns</th></tr>'
-    for title, formula in steps:
-        html += f'<tr><td><b>{title}</b></td><td><code>{formula}</code></td></tr>'
-    html += '</table>'
-    return html
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ── 4. APP STATE & CONFIGURATION ─────────────────────────────────────────────
+def color_gauge(value, max_val, title, color):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        title={"text": title, "font": {"color": "#475569", "size": 14}},
+        number={"font": {"color": "#0f172a", "size": 28}},
+        gauge={
+            "axis": {"range": [0, max_val], "tickcolor": "#94a3b8"},
+            "bar": {"color": color},
+            "bgcolor": "#ffffff",
+            "bordercolor": "#cbd5e1",
+            "steps": [{"range": [0, max_val], "color": "#f8fafc"}],
+        },
+    ))
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter"},
+        height=220,
+        margin=dict(t=40, b=10, l=20, r=20),
+    )
+    return fig
+
+
+def bar_chart(labels, values, colors, title, y_label="Value"):
+    fig = go.Figure(go.Bar(
+        x=labels, y=values,
+        marker_color=colors,
+        marker_line_width=0,
+        text=[f"{v:,.0f}" for v in values],
+        textposition="outside",
+        textfont={"color": "#0f172a", "size": 13},
+    ))
+    fig.update_layout(
+        title={"text": title, "font": {"color": "#0f172a", "size": 16}, "x": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter", "color": "#475569"},
+        yaxis={"title": y_label, "gridcolor": "#e2e8f0", "color": "#64748b"},
+        xaxis={"color": "#64748b"},
+        height=320,
+        margin=dict(t=50, b=20, l=20, r=20),
+    )
+    return fig
+
+
+def line_chart(x, y_dict, title, y_label):
+    palette = ["#2563eb", "#059669", "#db2777", "#ea580c", "#7c3aed"]
+    fig = go.Figure()
+    for i, (name, vals) in enumerate(y_dict.items()):
+        fig.add_trace(go.Scatter(
+            x=x, y=vals, name=name,
+            mode="lines+markers",
+            line={"color": palette[i % len(palette)], "width": 2.5},
+            marker={"size": 7},
+        ))
+    fig.update_layout(
+        title={"text": title, "font": {"color": "#0f172a", "size": 16}, "x": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter", "color": "#475569"},
+        yaxis={"title": y_label, "gridcolor": "#e2e8f0", "color": "#64748b"},
+        xaxis={"color": "#64748b"},
+        legend={"bgcolor": "rgba(0,0,0,0)", "bordercolor": "#cbd5e1"},
+        height=340,
+        margin=dict(t=50, b=20, l=20, r=20),
+    )
+    return fig
+
+
+def hist_chart(data, mean, title):
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(
+        x=data, nbinsx=max(5, len(data)//2),
+        marker_color="#6366f1", opacity=0.8,
+        name="Demand",
+    ))
+    fig.add_vline(x=mean, line_dash="dash", line_color="#059669",
+                  annotation_text=f"μ = {mean:.1f}", annotation_font_color="#059669")
+    fig.update_layout(
+        title={"text": title, "font": {"color": "#0f172a", "size": 16}, "x": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter", "color": "#475569"},
+        yaxis={"title": "Frequency", "gridcolor": "#e2e8f0", "color": "#64748b"},
+        xaxis={"title": "Demand (units)", "color": "#64748b"},
+        height=300,
+        margin=dict(t=50, b=20, l=20, r=20),
+    )
+    return fig
+
+
+
+# ── 4. APP STATE & CONFIGURATION ───────────────────────────────────────────
+
+
+if "module" not in st.session_state:
+    st.session_state.module = None
+
+
+MODULES = [
+    ("📊", "Mean, Variance & SD",  "Demand statistics",     "stats"),
+    ("🛡️", "Safety Stock",         "Buffer inventory",      "ss"),
+    ("🔄", "Reorder Point",        "When to reorder",       "rop"),
+    ("📦", "EOQ",                  "Optimal order qty",     "eoq"),
+    ("💰", "Total Cost",           "Full inventory cost",   "tc"),
+    ("🎯", "Service Level",        "Stock-out protection",  "sl"),
+    ("🚀", "Calculate all",    "Calculate everything",  "all"),
+]
+
+
+
+# ── 5. HEADER HERO ──────────────────────────────────────────────────────────
+
+
 st.markdown("""
 <div class="hero-banner">
-    <div class="hero-title">Mathematical Inventory Optimization Suite</div>
-    <div class="hero-sub">Enterprise Multi-Model Supply Chain Parameter Calibrator Engine</div>
+    <div class="hero-title">📦 Inventory Management Calculator</div>
+    <div class="hero-sub">Stochastic demand modelling · EOQ · Safety stock · Reorder point · Total cost</div>
 </div>
 """, unsafe_allow_html=True)
 
-modules = [
-    ("📊", "Economic Order Quantity", "Classic Wilson EOQ model", "eoq"),
-    ("🛡️", "Safety Stock & ROP",      "Buffer stock optimization", "ss"),
-    ("💰", "Total Inventory Cost",     "System cost distribution",  "tc"),
-    ("🚀", "Calculate All",             "Calculate everything",      "all"),
-]
 
-st.sidebar.markdown("### 🗺️ Control Engine")
-mod = st.sidebar.radio(
-    "Select Optimization Module",
-    [m[3] for m in modules],
-    format_func=lambda x: next(f"{m[0]} {m[1]}" for m in modules if m[3] == x)
-)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ── 5. INDIVIDUAL MODULE LOGICS ──────────────────────────────────────────────
+st.markdown('<div class="section-header">Please choose what you want to calculate</div>', unsafe_allow_html=True)
 
-# --- MODULE 1: EOQ ---
-if mod == "eoq":
-    st.markdown("### 📊 Economic Order Quantity (Wilson Framework)")
-    st.markdown("Balance procurement transaction costs against asset warehousing holding premiums.")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        D = st.number_input("Annual Demand Volume (units/yr)", min_value=0.0, value=18250.0, step=100.0)
-        S = st.number_input("Ordering Cost per Order (S, ₦)", min_value=0.0, value=5000.0, step=250.0)
-    with col2:
-        H = st.number_input("Holding Cost per Unit/Year (H, ₦)", min_value=0.001, value=20.0, step=1.0)
 
-    if st.button("Execute EOQ Optimization"):
-        if D == 0:
-            st.error("Annual Demand cannot be zero.")
-        elif H == 0:
-            st.error("Holding Cost cannot be zero.")
-        else:
-            eoq_val   = np.sqrt((2 * D * S) / H)
-            orders_yr = D / eoq_val
-            cycle_time = 365 / orders_yr
+# ── 6. NAVIGATION PANEL ─────────────────────────────────────────────────────
 
-            cols_metrics([
-                ("Economic Order Qty (Q*)",  f"{eoq_val:,.1f}",  "Units per Order"),
-                ("Optimal Orders Frequency", f"{orders_yr:.1f}", "Orders / Year"),
-                ("Average Cycle Duration",   f"{cycle_time:.1f}", "Days between orders"),
-            ], ncols=3)
 
-# --- MODULE 2: SAFETY STOCK & ROP ---
-elif mod == "ss":
-    st.markdown("### 🛡️ Safety Stock & Reorder Point Engine")
-    st.markdown("Calculate strategic buffer levels to hedge against stochastic demand during supplier lead periods.")
+cols = st.columns(7)
+for i, (icon, name, desc, mid) in enumerate(MODULES):
+    with cols[i]:
+        active = st.session_state.module == mid
+        border = "border: 2px solid #3b82f6;" if active else ""
+        bg = "background: linear-gradient(135deg,#eff6ff,#eef2ff);" if active else ""
+        st.markdown(f"""
+        <div class="module-card" style="{border}{bg}">
+            <div class="module-icon">{icon}</div>
+            <div class="module-name">{name}</div>
+            <div class="module-desc">{desc}</div>
+        </div>""", unsafe_allow_html=True)
+        if st.button("Open", key=f"btn_{mid}", use_container_width=True):
+            st.session_state.module = mid
+            st.rerun()
 
-    col1, col2 = st.columns(2)
-    with col1:
-        mu    = st.number_input("Mean Daily Demand (μ)",                      min_value=0.0, value=50.0,  step=1.0)
-        sigma = st.number_input("Standard Deviation of Daily Demand (σ)",     min_value=0.0, value=12.5,  step=0.5)
-    with col2:
-        lead  = st.number_input("Lead Time (days, L)", min_value=0, max_value=365, value=5, step=1)
-        z     = st.selectbox(
-            "Desired Service Level (Z-score)",
-            options=[1.28, 1.65, 1.96, 2.33],
-            index=1,
-            format_func=lambda x: {
-                1.28: "90% (z=1.28)",
-                1.65: "95% (z=1.65)",
-                1.96: "97.5% (z=1.96)",
-                2.33: "99% (z=2.33)",
-            }[x],
-        )
 
-    if st.button("Execute Safety Stock Evaluation"):
-        sigma_L     = sigma * np.sqrt(lead) if lead > 0 else 0.0
-        ss_val      = z * sigma_L
-        demand_lt   = mu * lead
-        rop_val     = demand_lt + ss_val
+st.markdown("---")
 
-        cols_metrics([
-            ("Lead Time Sigma",     f"{sigma_L:.2f}", "Stochastic Deviation"),
-            ("Safety Stock Buffer", f"{ss_val:.1f}",  "Strategic Units"),
-            ("Reorder Point (ROP)", f"{rop_val:.1f}", "Trigger Inventory Level"),
-        ], ncols=3)
 
-# --- MODULE 3: TOTAL COST ---
-elif mod == "tc":
-    st.markdown("### 💰 Total System Inventory Cost Matrix")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        D     = st.number_input("Annual Demand Volume",         min_value=0.0, value=18250.0, step=100.0)
-        Q     = st.number_input("Current Order Size Quantity (Q)", min_value=1.0, value=3000.0, step=50.0)
-        S     = st.number_input("Setup/Ordering Cost (S)",      min_value=0.0, value=5000.0,  step=100.0)
-    with col2:
-        H     = st.number_input("Holding Cost per Unit/Yr (H)", min_value=0.0, value=20.0,    step=1.0)
-        sigma = st.number_input("Standard Deviation of Demand", min_value=0.0, value=12.5,    step=0.5)
-        SC    = st.number_input("Shortage Cost per Unit (₦)",   min_value=0.0, value=50.0,    step=1.0)
-        lead  = st.number_input("Lead Time (days)",             min_value=0, max_value=365, value=5, step=1)
+# ── 7. CALCULATOR PAGES ─────────────────────────────────────────────────────
 
-    if st.button("Analyze System Cost Distribution"):
-        if Q == 0:
-            st.error("Order quantity cannot be zero.")
-        else:
-            orders_tc = D / Q
-            hc   = (Q / 2) * H
-            oc   = orders_tc * S
-            shc  = SC * sigma * 0.1 * orders_tc
-            tc_val = hc + oc + shc
 
-            cols_metrics([
-                ("Holding Premium",   f"₦{hc:,.2f}",    "Carrying Cost"),
-                ("Ordering Overhead", f"₦{oc:,.2f}",    "Procurement Cost"),
-                ("Shortage Exposure", f"₦{shc:,.2f}",   "Risk Cost"),
-                ("Total Combined Cost", f"₦{tc_val:,.2f}", "Annual Matrix"),
-            ], ncols=4)
+mod = st.session_state.module
 
-# --- MODULE 4: CALCULATE ALL MASTER ---
-elif mod == "all":
-    st.markdown("### 🚀 Calculate All")
-    st.markdown("Enter all your core thresholds below to evaluate every single inventory metric at once.")
 
-    icol1, icol2, icol3 = st.columns(3)
-    with icol1:
-        mu_all    = st.number_input("Mean daily demand (μ)", min_value=0.0, value=50.0,   step=1.0,   key="all_mu")
-        sigma_all = st.number_input("Std deviation (σ)",     min_value=0.0, value=12.5,   step=0.5,   key="all_sigma")
-    with icol2:
-        lead_all  = st.number_input("Lead time (days, L)",   min_value=0, max_value=365, value=5, step=1, key="all_lead")
-        z_all     = st.selectbox(
-            "Service level",
-            options=[1.28, 1.65, 1.96, 2.33],
-            index=1,
-            format_func=lambda x: {
-                1.28: "90% (z=1.28)",
-                1.65: "95% (z=1.65)",
-                1.96: "97.5% (z=1.96)",
-                2.33: "99% (z=2.33)",
-            }[x],
-            key="all_z",
-        )
-    with icol3:
-        S_all  = st.number_input("Ordering cost per order (₦)", min_value=0.0, value=5000.0, step=100.0, key="all_S")
-        H_all  = st.number_input("Holding cost per unit/yr (₦)", min_value=0.0, value=20.0,  step=1.0,   key="all_H")
-        SC_all = st.number_input("Shortage cost per unit (₦)",   min_value=0.0, value=50.0,  step=1.0,   key="all_SC")
+if mod is None:
+    st.markdown("""
+    <div style="text-align:center; padding: 4rem 0; color: #64748b;">
+        <div style="font-size:3rem; margin-bottom:1rem">👆</div>
+        <div style="font-size:1.1rem; font-weight:500; color:#475569">Select a calculator above to begin</div>
+        <div style="font-size:0.85rem; margin-top:0.5rem; color:#64748b">Each module calculates a specific inventory formula</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    if st.button("Run Master Calculation", key="calc_all_run"):
-        if H_all == 0:
-            st.error("Holding cost cannot be zero for full metric simulation.")
-        elif mu_all == 0:
-            st.error("Mean daily demand cannot be zero.")
-        else:
-            D_all              = mu_all * 365
-            sigma_L_all        = sigma_all * np.sqrt(lead_all) if lead_all > 0 else 0.0
-            ss_all             = z_all * sigma_L_all
-            demand_during_lt_all = mu_all * lead_all
-            rop_all            = demand_during_lt_all + ss_all
-            eoq_all            = np.sqrt((2 * D_all * S_all) / H_all)
-            orders_all         = D_all / eoq_all
-            hc_all             = (eoq_all / 2) * H_all
-            oc_all             = orders_all * S_all
-            shc_all            = SC_all * sigma_all * 0.1 * orders_all
-            tc_all             = hc_all + oc_all + shc_all
-            pct_all            = {1.28: 90, 1.65: 95, 1.96: 97.5, 2.33: 99}[z_all]
+# ... keep the rest of your code exactly the same ...
 
-            st.markdown('<div class="section-header">Primary Optimization Metrics</div>', unsafe_allow_html=True)
-            cols_metrics([
-                ("Economic Order Qty",  f"{eoq_all:,.0f}",   "units/order"),
-                ("Safety Stock (SS)",   f"{ss_all:.1f}",      "units Buffer"),
-                ("Reorder Point (ROP)", f"{rop_all:.1f}",     "inventory scale"),
-                ("Total Annual Cost",   f"₦{tc_all:,.0f}",   "combined system"),
-            ], ncols=4)
-
-            st.markdown('<div class="section-header">Operations Framework Breakdown</div>', unsafe_allow_html=True)
-            cols_metrics([
-                ("Annual Demand Volume", f"{D_all:,.0f}",              "units/year"),
-                ("Orders Placed",        f"{orders_all:.1f}",          "times/year"),
-                ("Lead Time Demand",     f"{demand_during_lt_all:.1f}", "units"),
-                ("Cycle Service Level",  f"{pct_all}%",                f"z={z_all}"),
-            ], ncols=4)
-
-            st.markdown('<div class="section-header">System Optimization Visualizations</div>', unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-
-            with c1:
-                q_range = np.linspace(max(eoq_all * 0.2, 1), eoq_all * 3, 200)
-                hc_line = (q_range / 2) * H_all
-                oc_line = (D_all / q_range) * S_all
-                tc_line = hc_line + oc_line + (SC_all * sigma_all * 0.1 * (D_all / q_range))
-
-                fig_all = go.Figure()
-                fig_all.add_trace(go.Scatter(x=q_range, y=hc_line, name="Holding cost",  line={"color": "#4f46e5", "width": 2}, mode="lines"))
-                fig_all.add_trace(go.Scatter(x=q_range, y=oc_line, name="Ordering cost", line={"color": "#ec4899", "width": 2}, mode="lines"))
-                fig_all.add_trace(go.Scatter(x=q_range, y=tc_line, name="Total system",  line={"color": "#10b981", "width": 3}, mode="lines"))
-                fig_all.add_vline(
-                    x=eoq_all,
-                    line_dash="dash",
-                    line_color="#3b82f6",
-                    annotation_text=f"EOQ={eoq_all:,.0f}",
-                    annotation_font_color="#3b82f6",
-                )
-                fig_all.update_layout(
-                    title={"text": "Total Optimization Cost Curves", "font": {"color": "#0f172a", "size": 15}},
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    font={"family": "Inter", "color": "#475569"},
-                    yaxis={"title": "Cost (₦)", "gridcolor": "#e2e8f0", "color": "#475569"},
-                    xaxis={"title": "Order Quantity Thresholds",    "color": "#475569"},
-                    legend={"bgcolor": "rgba(255,255,255,0.8)"},
-                    height=320, margin=dict(t=50, b=20, l=20, r=20),
-                )
-                st.plotly_chart(fig_all, use_container_width=True)
-
-            with c2:
-                fig_wf = go.Figure(go.Waterfall(
-                    orientation="v",
-                    measure=["relative", "relative", "total"],
-                    x=["Demand during LT", "Safety stock", "Reorder point"],
-                    y=[demand_during_lt_all, ss_all, 0],
-                    connector={"line": {"color": "#cbd5e1"}},
-                    increasing={"marker": {"color": "#10b981"}},
-                    totals={"marker": {"color": "#3b82f6"}},
-                    text=[f"{demand_during_lt_all:.1f}", f"{ss_all:.1f}", f"{rop_all:.1f}"],
-                    textposition="outside",
-                    textfont={"color": "#0f172a"},
-                ))
-                fig_wf.update_layout(
-                    title={"text": "Reorder Point (ROP) Structure Balance", "font": {"color": "#0f172a", "size": 16}},
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    font={"family": "Inter", "color": "#475569"},
-                    yaxis={"gridcolor": "#e2e8f0", "color": "#475569"},
-                    xaxis={"color": "#475569"},
-                    height=320, margin=dict(t=50, b=20, l=20, r=20),
-                )
-                st.plotly_chart(fig_wf, use_container_width=True)
-
-            with st.expander("📖 View Consolidated Formula Audit Trail"):
-                st.markdown(formula_html([
-                    ("Annual Demand Volume (D)",   f"{mu_all} × 365 = {D_all:,.0f} units/yr"),
-                    ("EOQ Engine = √(2DS/H)",      f"√(2 × {D_all:,.0f} × {S_all:,.0f} / {H_all}) = {eoq_all:,.1f} units"),
-                    ("Safety Stock Formula (SS)",  f"{z_all} × ({sigma_all} × √{lead_all}) = {ss_all:.1f} units"),
-                    ("Reorder Point Target (ROP)", f"{demand_during_lt_all:.1f} + {ss_all:.1f} = {rop_all:.1f} units"),
-                    ("Consolidated Cost Matrix",   f"HC (₦{hc_all:,.0f}) + OC (₦{oc_all:,.0f}) + SC (₦{shc_all:,.0f}) = ₦{tc_all:,.0f}/yr"),
-                ]), unsafe_allow_html=True)
-
-    else:
-        st.info("👈 Complete the global parameter values and click **Run Master Calculation** to get an instant snapshot of your entire optimization portfolio.")
+# In the TOTAL COST section, change only this line:
+# lead  = st.number_input("Lead time (days)", min_value=0, value=5, step=1)
