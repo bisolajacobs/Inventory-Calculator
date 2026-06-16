@@ -125,6 +125,29 @@ html, body, [class*="css"] {
     margin-top: 1.5rem;
 }
 
+.info-box {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+    color: #000000 !important;
+    line-height: 1.6;
+    margin-top: 0.6rem;
+    margin-bottom: 1rem;
+}
+.info-box * {
+    color: #000000 !important;
+}
+.info-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+}
+.info-label {
+    font-weight: 700;
+    margin-top: 0.45rem;
+}
+
 div[data-testid="stNumberInput"] input,
 div[data-testid="stTextInput"] input {
     background: #ffffff !important;
@@ -200,6 +223,15 @@ def formula_html(rows):
         for n, v in rows
     )
     return f'<div class="formula-box">{inner}</div>'
+
+def info_html(title, simple_label, explanation):
+    return f"""
+    <div class="info-box">
+        <div class="info-title">{title}</div>
+        <div class="info-label">{simple_label}</div>
+        <div>{explanation}</div>
+    </div>
+    """
 
 def cols_metrics(items, ncols=4):
     cols = st.columns(ncols)
@@ -408,7 +440,13 @@ elif mod == "stats":
 
 elif mod == "ss":
     st.markdown("### 🛡️ Safety Stock")
-    st.markdown("Calculate the extra inventory needed to protect against demand uncertainty.")
+    st.markdown(info_html(
+        "Safety Stock",
+        "Extra Goods Kept",
+        "Extra stock kept for emergencies."
+    ), unsafe_allow_html=True)
+
+    st.markdown("If you normally sell 100 loaves of bread, you may keep 20 extra loaves in case more customers come than expected.")
 
     col1, col2 = st.columns([1, 2])
     with col1:
@@ -457,7 +495,13 @@ elif mod == "ss":
 
 elif mod == "rop":
     st.markdown("### 🔄 Reorder Point")
-    st.markdown("Find the inventory level at which a new order should be triggered.")
+    st.markdown(info_html(
+        "Reorder Point",
+        "When to Buy More",
+        "The stock level at which you should place a new order."
+    ), unsafe_allow_html=True)
+
+    st.markdown("If your reorder point is 50 cartons, you should order more stock once you have only 50 cartons left.")
 
     col1, col2 = st.columns([1, 2])
     with col1:
@@ -530,7 +574,13 @@ elif mod == "rop":
 
 elif mod == "eoq":
     st.markdown("### 📦 Economic Order Quantity (EOQ)")
-    st.markdown("Find the order quantity that minimises total ordering and holding costs.")
+    st.markdown(info_html(
+        "Economic Order Quantity (EOQ)",
+        "How Much More to Buy",
+        "The best amount of stock to order at one time."
+    ), unsafe_allow_html=True)
+
+    st.markdown("Ordering too little causes frequent trips to suppliers. Ordering too much may lead to spoilage. EOQ helps find a balance.")
 
     col1, col2 = st.columns([1, 2])
     with col1:
@@ -599,7 +649,13 @@ elif mod == "eoq":
 
 elif mod == "tc":
     st.markdown("### 💰 Total Inventory Cost")
-    st.markdown("Calculate and break down the full cost of your inventory system.")
+    st.markdown(info_html(
+        "Total Cost",
+        "Total Cost of Goods",
+        "The overall cost of managing inventory."
+    ), unsafe_allow_html=True)
+
+    st.markdown("It combines the cost of storing stock, ordering stock, and losses from stock shortages.")
 
     col1, col2 = st.columns([1, 2])
     with col1:
@@ -693,7 +749,13 @@ elif mod == "tc":
 
 elif mod == "sl":
     st.markdown("### 🎯 Service Level")
-    st.markdown("Understand your stock-out protection and adjust your service level target.")
+    st.markdown(info_html(
+        "Service Level",
+        "Avoid Running Out",
+        "This shows how well your stock protects you from running out."
+    ), unsafe_allow_html=True)
+
+    st.markdown("A higher service level means you are less likely to run out of stock.")
 
     col1, col2 = st.columns([1, 2])
     with col1:
@@ -853,6 +915,5 @@ elif mod == "all":
                     ("Reorder Point Target (ROP)", f"{demand_during_lt_all:.1f} + {ss_all:.1f} = {rop_all:.1f} units"),
                     ("Consolidated Cost Matrix", f"HC (₦{hc_all:,.0f}) + OC (₦{oc_all:,.0f}) + SC (₦{shc_all:,.0f}) = ₦{tc_all:,.0f}/yr")
                 ]), unsafe_allow_html=True)
-
     else:
         st.info("👈 Complete the global parameter values and click **Run Master Calculation** to get an instant snapshot of your entire optimization portfolio.")
