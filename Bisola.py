@@ -334,7 +334,6 @@ If you sold 40, 50, and 60 bags in three days:
 Average sales = (40 + 50 + 60) ÷ 3 = 50 bags
 
 Variance (How Different Sales Are)
-
 Simple meaning:
 Shows how much sales change from day to day.
 Example:
