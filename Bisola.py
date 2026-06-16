@@ -141,11 +141,12 @@ html, body, [class*="css"] {
 .info-title {
     font-size: 1.05rem;
     font-weight: 700;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.25rem;
 }
 .info-label {
-    font-weight: 700;
-    margin-top: 0.45rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.45rem;
 }
 
 div[data-testid="stNumberInput"] input,
@@ -224,11 +225,11 @@ def formula_html(rows):
     )
     return f'<div class="formula-box">{inner}</div>'
 
-def info_html(title, simple_label, explanation):
+def info_html(title, label, explanation):
     return f"""
     <div class="info-box">
         <div class="info-title">{title}</div>
-        <div class="info-label">{simple_label}</div>
+        <div class="info-label">{label}</div>
         <div>{explanation}</div>
     </div>
     """
@@ -315,7 +316,7 @@ def hist_chart(data, mean, title):
     ))
     fig.add_vline(
         x=mean, line_dash="dash", line_color="#059669",
-        annotation_text=f"μ = {mean:.1f}", annotation_font_color="#059669"
+        annotation_text=f"Mean = {mean:.1f}", annotation_font_color="#059669"
     )
     fig.update_layout(
         title={"text": title, "font": {"color": "#0f172a", "size": 16}, "x": 0},
@@ -333,13 +334,13 @@ if "module" not in st.session_state:
     st.session_state.module = None
 
 MODULES = [
-    ("📊", "Mean, Variance & SD",  "Demand statistics",    "stats"),
-    ("🛡️", "Safety Stock",        "Buffer inventory",     "ss"),
-    ("🔄", "Reorder Point",       "When to reorder",      "rop"),
-    ("📦", "EOQ",                 "Optimal order qty",    "eoq"),
-    ("💰", "Total Cost",          "Full inventory cost",  "tc"),
-    ("🎯", "Service Level",       "Stock-out protection", "sl"),
-    ("🚀", "Calculate all",       "Calculate everything", "all"),
+    ("📊", "Mean, Variance & SD", "Demand statistics", "stats"),
+    ("🛡️", "Safety Stock", "Extra goods kept", "ss"),
+    ("🔄", "Reorder Point", "When to buy more", "rop"),
+    ("📦", "EOQ", "How much more to buy", "eoq"),
+    ("💰", "Total Cost", "Total cost of goods", "tc"),
+    ("🎯", "Service Level", "Avoid running out", "sl"),
+    ("🚀", "Calculate all", "Calculate everything", "all"),
 ]
 
 st.markdown("""
@@ -419,7 +420,7 @@ elif mod == "stats":
                         ("μ = Σx / n", f"{sample_str} / {n} = {mu:.2f}"),
                         ("σ² = Σ(x−μ)² / n", f"{variance:.4f}"),
                         ("σ = √σ²", f"√{variance:.2f} = {sigma:.2f}"),
-                        ("D ~ N(μ, σ²)", f"N({mu:.2f}, {variance:.2f})"),
+                        ("Demand follows", f"N({mu:.2f}, {variance:.2f})"),
                     ]), unsafe_allow_html=True)
 
                     st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
@@ -441,11 +442,10 @@ elif mod == "stats":
 elif mod == "ss":
     st.markdown("### 🛡️ Safety Stock")
     st.markdown(info_html(
-        "Safety Stock",
+        "Safety Stocks",
         "Extra Goods Kept",
         "Extra stock kept for emergencies."
     ), unsafe_allow_html=True)
-
     st.markdown("If you normally sell 100 loaves of bread, you may keep 20 extra loaves in case more customers come than expected.")
 
     col1, col2 = st.columns([1, 2])
@@ -458,17 +458,17 @@ elif mod == "ss":
             index=1,
             format_func=lambda x: {1.28:"90% (z=1.28)", 1.65:"95% (z=1.65)", 1.96:"97.5% (z=1.96)", 2.33:"99% (z=2.33)"}[x],
         )
-        calculate = st.button("Calculate Safety Stock", key="calc_ss")
+        calculate = st.button("Calculate Safety Stocks", key="calc_ss")
 
     with col2:
         if calculate:
             sigma_L = sigma * np.sqrt(lead)
-            ss = z * sigma_L
+            safety_stocks = z * sigma_L
             pct = {1.28:90, 1.65:95, 1.96:97.5, 2.33:99}[z]
 
             st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
             cols_metrics([
-                ("Safety stock", f"{ss:.1f}", "units"),
+                ("Safety stocks", f"{safety_stocks:.1f}", "units"),
                 ("σ√L", f"{sigma_L:.2f}", "units"),
                 ("Service level", f"{pct}%", ""),
                 ("Lead time", str(lead), "days"),
@@ -477,21 +477,21 @@ elif mod == "ss":
             st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
             st.markdown(formula_html([
                 ("σ√L", f"{sigma} × √{lead} = {sigma_L:.2f}"),
-                ("SS = z·σ√L", f"{z} × {sigma_L:.2f} = {ss:.1f} units"),
+                ("Safety stocks = z·σ√L", f"{z} × {sigma_L:.2f} = {safety_stocks:.1f} units"),
             ]), unsafe_allow_html=True)
 
             st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             with c1:
-                st.plotly_chart(color_gauge(ss, max(ss * 2, 1), "Safety stock (units)", "#6366f1"), use_container_width=True)
+                st.plotly_chart(color_gauge(safety_stocks, max(safety_stocks * 2, 1), "Safety stocks (units)", "#6366f1"), use_container_width=True)
             with c2:
                 z_vals = [1.28, 1.65, 1.96, 2.33]
                 ss_vals = [zv * sigma * np.sqrt(lead) for zv in z_vals]
                 lbls = ["90%", "95%", "97.5%", "99%"]
                 clrs = ["#6366f1" if zv == z else "#cbd5e1" for zv in z_vals]
-                st.plotly_chart(bar_chart(lbls, ss_vals, clrs, "Safety stock by service level", "Units"), use_container_width=True)
+                st.plotly_chart(bar_chart(lbls, ss_vals, clrs, "Safety stocks by service level", "Units"), use_container_width=True)
         else:
-            st.info("👈 Fill the inputs and click **Calculate Safety Stock**")
+            st.info("👈 Fill the inputs and click **Calculate Safety Stocks**")
 
 elif mod == "rop":
     st.markdown("### 🔄 Reorder Point")
@@ -500,7 +500,6 @@ elif mod == "rop":
         "When to Buy More",
         "The stock level at which you should place a new order."
     ), unsafe_allow_html=True)
-
     st.markdown("If your reorder point is 50 cartons, you should order more stock once you have only 50 cartons left.")
 
     col1, col2 = st.columns([1, 2])
@@ -520,23 +519,23 @@ elif mod == "rop":
     with col2:
         if calculate:
             sigma_L = sigma * np.sqrt(lead)
-            ss = z * sigma_L
+            safety_stocks = z * sigma_L
             demand_during_lt = mu * lead
-            rop = demand_during_lt + ss
+            reorder_point = demand_during_lt + safety_stocks
 
             st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
             cols_metrics([
-                ("Reorder point", f"{rop:.1f}", "units"),
-                ("Safety stock", f"{ss:.1f}", "units"),
-                ("Demand during LT", f"{demand_during_lt:.1f}", "units"),
+                ("Reorder point", f"{reorder_point:.1f}", "units"),
+                ("Safety stocks", f"{safety_stocks:.1f}", "units"),
+                ("Demand during lead time", f"{demand_during_lt:.1f}", "units"),
                 ("Lead time", str(lead), "days"),
             ])
 
             st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
             st.markdown(formula_html([
-                ("μ × L (demand during LT)", f"{mu} × {lead} = {demand_during_lt:.1f}"),
-                ("SS = z·σ√L", f"{z} × {sigma_L:.2f} = {ss:.1f}"),
-                ("R = μL + SS", f"{demand_during_lt:.1f} + {ss:.1f} = {rop:.1f} units"),
+                ("Demand during lead time", f"{mu} × {lead} = {demand_during_lt:.1f}"),
+                ("Safety stocks = z·σ√L", f"{z} × {sigma_L:.2f} = {safety_stocks:.1f}"),
+                ("Reorder point = Demand during lead time + Safety stocks", f"{demand_during_lt:.1f} + {safety_stocks:.1f} = {reorder_point:.1f} units"),
             ]), unsafe_allow_html=True)
 
             st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
@@ -545,17 +544,17 @@ elif mod == "rop":
                 fig = go.Figure(go.Waterfall(
                     orientation="v",
                     measure=["relative", "relative", "total"],
-                    x=["Demand during LT", "Safety stock", "Reorder point"],
-                    y=[demand_during_lt, ss, 0],
+                    x=["Demand during lead time", "Safety stocks", "Reorder point"],
+                    y=[demand_during_lt, safety_stocks, 0],
                     connector={"line": {"color": "#cbd5e1"}},
                     increasing={"marker": {"color": "#059669"}},
                     totals={"marker": {"color": "#2563eb"}},
-                    text=[f"{demand_during_lt:.1f}", f"{ss:.1f}", f"{rop:.1f}"],
+                    text=[f"{demand_during_lt:.1f}", f"{safety_stocks:.1f}", f"{reorder_point:.1f}"],
                     textposition="outside",
                     textfont={"color": "#0f172a"},
                 ))
                 fig.update_layout(
-                    title={"text": "ROP composition", "font": {"color": "#0f172a", "size": 16}},
+                    title={"text": "Reorder point composition", "font": {"color": "#0f172a", "size": 16}},
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
                     font={"family": "Inter", "color": "#475569"},
@@ -568,7 +567,7 @@ elif mod == "rop":
             with c2:
                 lead_range = list(range(0, 16))
                 rops = [mu * l + z * sigma * np.sqrt(l) for l in lead_range]
-                st.plotly_chart(line_chart(lead_range, {"Reorder point": rops}, "ROP vs lead time", "Units"), use_container_width=True)
+                st.plotly_chart(line_chart(lead_range, {"Reorder point": rops}, "Reorder point vs lead time", "Units"), use_container_width=True)
         else:
             st.info("👈 Fill the inputs and click **Calculate Reorder Point**")
 
@@ -579,7 +578,6 @@ elif mod == "eoq":
         "How Much More to Buy",
         "The best amount of stock to order at one time."
     ), unsafe_allow_html=True)
-
     st.markdown("Ordering too little causes frequent trips to suppliers. Ordering too much may lead to spoilage. EOQ helps find a balance.")
 
     col1, col2 = st.columns([1, 2])
@@ -603,19 +601,19 @@ elif mod == "eoq":
 
                 st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
                 cols_metrics([
-                    ("EOQ", f"{eoq:,.0f}", "units/order"),
+                    ("Economic order quantity", f"{eoq:,.0f}", "units/order"),
                     ("Annual demand", f"{D:,.0f}", "units/year"),
                     ("Orders per year", f"{orders:.1f}", "orders"),
-                    ("Min total cost", f"₦{tc:,.0f}", ""),
+                    ("Minimum total cost", f"₦{tc:,.0f}", ""),
                 ])
 
                 st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
                 st.markdown(formula_html([
                     ("D = d × 365", f"{d} × 365 = {D:,.0f}"),
                     ("EOQ = √(2DS/H)", f"√(2×{D:,.0f}×{S:,.0f}/{H}) = {eoq:,.1f}"),
-                    ("HC = (Q/2)×H", f"({eoq:,.0f}/2)×{H} = ₦{hc:,.0f}"),
-                    ("OC = (D/Q)×S", f"({D:,.0f}/{eoq:,.0f})×{S:,.0f} = ₦{oc:,.0f}"),
-                    ("TC = HC + OC", f"₦{hc:,.0f} + ₦{oc:,.0f} = ₦{tc:,.0f}"),
+                    ("Holding cost = (Q/2)×H", f"({eoq:,.0f}/2)×{H} = ₦{hc:,.0f}"),
+                    ("Ordering cost = (D/Q)×S", f"({D:,.0f}/{eoq:,.0f})×{S:,.0f} = ₦{oc:,.0f}"),
+                    ("Total cost = Holding cost + Ordering cost", f"₦{hc:,.0f} + ₦{oc:,.0f} = ₦{tc:,.0f}"),
                 ]), unsafe_allow_html=True)
 
                 st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
@@ -650,11 +648,10 @@ elif mod == "eoq":
 elif mod == "tc":
     st.markdown("### 💰 Total Inventory Cost")
     st.markdown(info_html(
-        "Total Cost",
+        "Total Cost of Goods",
         "Total Cost of Goods",
         "The overall cost of managing inventory."
     ), unsafe_allow_html=True)
-
     st.markdown("It combines the cost of storing stock, ordering stock, and losses from stock shortages.")
 
     col1, col2 = st.columns([1, 2])
@@ -675,26 +672,26 @@ elif mod == "tc":
                 D = d * 365
                 eoq = np.sqrt((2 * D * S) / H)
                 orders = D / eoq if eoq != 0 else 0
-                hc = (eoq / 2) * H
-                oc = orders * S
-                shc = SC * sigma * 0.1 * orders
-                tc = hc + oc + shc
+                holding_cost = (eoq / 2) * H
+                ordering_cost = orders * S
+                shortage_cost = SC * sigma * 0.1 * orders
+                total_cost = holding_cost + ordering_cost + shortage_cost
 
                 st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
                 cols_metrics([
-                    ("Holding cost", f"₦{hc:,.0f}", ""),
-                    ("Ordering cost", f"₦{oc:,.0f}", ""),
-                    ("Shortage cost", f"₦{shc:,.0f}", ""),
-                    ("Total cost", f"₦{tc:,.0f}", ""),
+                    ("Holding cost", f"₦{holding_cost:,.0f}", ""),
+                    ("Ordering cost", f"₦{ordering_cost:,.0f}", ""),
+                    ("Shortage cost", f"₦{shortage_cost:,.0f}", ""),
+                    ("Total cost", f"₦{total_cost:,.0f}", ""),
                 ])
 
                 st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
                 st.markdown(formula_html([
-                    ("EOQ", f"{eoq:,.0f} units"),
-                    ("HC = (Q/2)×H", f"₦{hc:,.0f}"),
-                    ("OC = (D/Q)×S", f"₦{oc:,.0f}"),
-                    ("SC estimate", f"₦{shc:,.0f}"),
-                    ("TC = HC + OC + SC", f"₦{tc:,.0f}"),
+                    ("Economic order quantity", f"{eoq:,.0f} units"),
+                    ("Holding cost = (Q/2)×H", f"₦{holding_cost:,.0f}"),
+                    ("Ordering cost = (D/Q)×S", f"₦{ordering_cost:,.0f}"),
+                    ("Shortage cost estimate", f"₦{shortage_cost:,.0f}"),
+                    ("Total cost = Holding cost + Ordering cost + Shortage cost", f"₦{total_cost:,.0f}"),
                 ]), unsafe_allow_html=True)
 
                 st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
@@ -702,12 +699,12 @@ elif mod == "tc":
                 with c1:
                     fig = go.Figure(go.Pie(
                         labels=["Holding cost", "Ordering cost", "Shortage cost"],
-                        values=[hc, oc, shc],
+                        values=[holding_cost, ordering_cost, shortage_cost],
                         hole=0.55,
                         marker={"colors": ["#6366f1", "#db2777", "#ea580c"], "line": {"color": "#ffffff", "width": 2}},
                         textfont={"color": "#0f172a"},
                     ))
-                    fig.add_annotation(text=f"₦{tc:,.0f}", x=0.5, y=0.5, showarrow=False, font={"size": 14, "color": "#0f172a"})
+                    fig.add_annotation(text=f"₦{total_cost:,.0f}", x=0.5, y=0.5, showarrow=False, font={"size": 14, "color": "#0f172a"})
                     fig.update_layout(
                         title={"text": "Cost breakdown", "font": {"color": "#0f172a", "size": 15}},
                         paper_bgcolor="rgba(0,0,0,0)",
@@ -754,7 +751,6 @@ elif mod == "sl":
         "Avoid Running Out",
         "This shows how well your stock protects you from running out."
     ), unsafe_allow_html=True)
-
     st.markdown("A higher service level means you are less likely to run out of stock.")
 
     col1, col2 = st.columns([1, 2])
@@ -778,12 +774,12 @@ elif mod == "sl":
                 pct = round(50 + z * 30, 1)
 
             sigma_L = sigma * np.sqrt(lead)
-            ss = z * sigma_L
+            safety_stocks = z * sigma_L
 
             st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
             cols_metrics([
                 ("Service level", f"{pct}%", ""),
-                ("Safety stock", f"{ss:.1f}", "units"),
+                ("Safety stocks", f"{safety_stocks:.1f}", "units"),
                 ("z factor", f"{z:.2f}", ""),
                 ("Stock-out risk", f"{100-pct:.1f}%", ""),
             ])
@@ -792,12 +788,12 @@ elif mod == "sl":
             st.markdown(formula_html([
                 ("z value", str(z)),
                 ("Service level", f"≈ {pct}%"),
-                ("SS = z·σ√L", f"{z} × {sigma_L:.2f} = {ss:.1f} units"),
+                ("Safety stocks = z·σ√L", f"{z} × {sigma_L:.2f} = {safety_stocks:.1f} units"),
                 ("Stock-out risk", f"~{100-pct:.1f}%"),
             ]), unsafe_allow_html=True)
 
             st.markdown('<div class="section-header">Charts</div>', unsafe_allow_html=True)
-            st.plotly_chart(color_gauge(ss, max(ss * 2, 1), "Safety Stock Allocation", "#059669"), use_container_width=True)
+            st.plotly_chart(color_gauge(safety_stocks, max(safety_stocks * 2, 1), "Safety stocks allocation", "#059669"), use_container_width=True)
         else:
             st.info("👈 Adjust the slider and click **Calculate Service Level**")
 
@@ -831,31 +827,31 @@ elif mod == "all":
         else:
             D_all = mu_all * 365
             sigma_L_all = sigma_all * np.sqrt(lead_all)
-            ss_all = z_all * sigma_L_all
+            safety_stocks_all = z_all * sigma_L_all
             demand_during_lt_all = mu_all * lead_all
-            rop_all = demand_during_lt_all + ss_all
+            reorder_point_all = demand_during_lt_all + safety_stocks_all
             eoq_all = np.sqrt((2 * D_all * S_all) / H_all)
             orders_all = D_all / eoq_all if eoq_all != 0 else 0
-            hc_all = (eoq_all / 2) * H_all
-            oc_all = orders_all * S_all
-            shc_all = SC_all * sigma_all * 0.1 * orders_all
-            tc_all = hc_all + oc_all + shc_all
+            holding_cost_all = (eoq_all / 2) * H_all
+            ordering_cost_all = orders_all * S_all
+            shortage_cost_all = SC_all * sigma_all * 0.1 * orders_all
+            total_cost_all = holding_cost_all + ordering_cost_all + shortage_cost_all
             pct_all = {1.28:90, 1.65:95, 1.96:97.5, 2.33:99}[z_all]
 
             st.markdown('<div class="section-header">Primary Optimization Metrics</div>', unsafe_allow_html=True)
             cols_metrics([
-                ("Economic Order Qty", f"{eoq_all:,.0f}", "units/order"),
-                ("Safety Stock (SS)", f"{ss_all:.1f}", "units Buffer"),
-                ("Reorder Point (ROP)", f"{rop_all:.1f}", "inventory scale"),
-                ("Total Annual Cost", f"₦{tc_all:,.0f}", "combined system"),
+                ("Economic order quantity", f"{eoq_all:,.0f}", "units/order"),
+                ("Safety stocks", f"{safety_stocks_all:.1f}", "units"),
+                ("Reorder point", f"{reorder_point_all:.1f}", "units"),
+                ("Total annual cost", f"₦{total_cost_all:,.0f}", ""),
             ], ncols=4)
 
             st.markdown('<div class="section-header">Operations Framework Breakdown</div>', unsafe_allow_html=True)
             cols_metrics([
-                ("Annual Demand Volume", f"{D_all:,.0f}", "units/year"),
-                ("Orders Placed", f"{orders_all:.1f}", "times/year"),
-                ("Lead Time Demand", f"{demand_during_lt_all:.1f}", "units"),
-                ("Cycle Service Level", f"{pct_all}%", f"z={z_all}"),
+                ("Annual demand volume", f"{D_all:,.0f}", "units/year"),
+                ("Orders placed", f"{orders_all:.1f}", "times/year"),
+                ("Demand during lead time", f"{demand_during_lt_all:.1f}", "units"),
+                ("Cycle service level", f"{pct_all}%", f"z={z_all}"),
             ], ncols=4)
 
             st.markdown('<div class="section-header">System Optimization Visualizations</div>', unsafe_allow_html=True)
@@ -886,17 +882,17 @@ elif mod == "all":
                 fig_wf = go.Figure(go.Waterfall(
                     orientation="v",
                     measure=["relative", "relative", "total"],
-                    x=["Demand during LT", "Safety stock", "Reorder point"],
-                    y=[demand_during_lt_all, ss_all, 0],
+                    x=["Demand during lead time", "Safety stocks", "Reorder point"],
+                    y=[demand_during_lt_all, safety_stocks_all, 0],
                     connector={"line": {"color": "#cbd5e1"}},
                     increasing={"marker": {"color": "#059669"}},
                     totals={"marker": {"color": "#2563eb"}},
-                    text=[f"{demand_during_lt_all:.1f}", f"{ss_all:.1f}", f"{rop_all:.1f}"],
+                    text=[f"{demand_during_lt_all:.1f}", f"{safety_stocks_all:.1f}", f"{reorder_point_all:.1f}"],
                     textposition="outside",
                     textfont={"color": "#0f172a"},
                 ))
                 fig_wf.update_layout(
-                    title={"text": "Reorder Point (ROP) Structure Balance", "font": {"color": "#0f172a", "size": 16}},
+                    title={"text": "Reorder point structure balance", "font": {"color": "#0f172a", "size": 16}},
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
                     font={"family": "Inter", "color": "#475569"},
@@ -909,11 +905,11 @@ elif mod == "all":
 
             with st.expander("📖 View Consolidated Formula Audit Trail"):
                 st.markdown(formula_html([
-                    ("Annual Demand Volume (D)", f"{mu_all} × 365 = {D_all:,.0f} units/yr"),
-                    ("EOQ Engine = √(2DS/H)", f"√(2 × {D_all:,.0f} × {S_all:,.0f} / {H_all}) = {eoq_all:,.1f} units"),
-                    ("Safety Stock Formula (SS)", f"{z_all} × ({sigma_all} × √{lead_all}) = {ss_all:.1f} units"),
-                    ("Reorder Point Target (ROP)", f"{demand_during_lt_all:.1f} + {ss_all:.1f} = {rop_all:.1f} units"),
-                    ("Consolidated Cost Matrix", f"HC (₦{hc_all:,.0f}) + OC (₦{oc_all:,.0f}) + SC (₦{shc_all:,.0f}) = ₦{tc_all:,.0f}/yr")
+                    ("Annual demand volume", f"{mu_all} × 365 = {D_all:,.0f} units/yr"),
+                    ("Economic order quantity", f"√(2 × {D_all:,.0f} × {S_all:,.0f} / {H_all}) = {eoq_all:,.1f} units"),
+                    ("Safety stocks formula", f"{z_all} × ({sigma_all} × √{lead_all}) = {safety_stocks_all:.1f} units"),
+                    ("Reorder point target", f"{demand_during_lt_all:.1f} + {safety_stocks_all:.1f} = {reorder_point_all:.1f} units"),
+                    ("Total cost matrix", f"Holding cost (₦{holding_cost_all:,.0f}) + Ordering cost (₦{ordering_cost_all:,.0f}) + Shortage cost (₦{shortage_cost_all:,.0f}) = ₦{total_cost_all:,.0f}/yr")
                 ]), unsafe_allow_html=True)
     else:
         st.info("👈 Complete the global parameter values and click **Run Master Calculation** to get an instant snapshot of your entire optimization portfolio.")
