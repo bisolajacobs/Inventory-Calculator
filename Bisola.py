@@ -257,7 +257,7 @@ if "module" not in st.session_state:
     st.session_state.module = None
 
 MODULES = [
-    ("📊", "Mean, Variance & SD", "Demand statistics", "stats"),
+    ("📊", "Mean, Variance & SD", "Sales Summary", "stats"),
     ("🛡️", "Safety Stock", "Extra goods kept", "ss"),
     ("🔄", "Reorder Point", "When to buy more", "rop"),
     ("📦", "EOQ", "How much more to buy", "eoq"),
@@ -314,25 +314,20 @@ elif mod == "stats":
 
 Simple meaning:
 The average number of items sold in a day.
-
 Example:
 If you sold 40, 50, and 60 bags in three days:
 Average sales = (40 + 50 + 60) ÷ 3 = 50 bags
 
 Variance (How Different Sales Are)
-
 Simple meaning:
 Shows how much sales change from day to day.
-
 Example:
 If you sell around 50 bags every day, variance is small.
 If some days you sell 20 bags and other days 100 bags, variance is large.
 
 Standard Deviation (Typical Change in Sales)
-
 Simple meaning:
 Shows how far sales usually move away from the average.
-
 Think of it as:
 Small number = sales are predictable.
 Large number = sales go up and down a lot."""
