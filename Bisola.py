@@ -198,6 +198,17 @@ h1 *, h2 *, h3 *, h4 *, h5 *, h6 *,
     opacity: 1 !important;
 }
 
+div[data-testid="stToggle"] label p,
+div[data-testid="stToggle"] span,
+label[data-testid="stWidgetLabel"] p {
+    color: #000000 !important;
+    font-weight: 800 !important;
+}
+
+div[data-testid="stToggle"] {
+    color: #000000 !important;
+}
+
 div[data-testid="stNumberInput"] label p,
 div[data-testid="stTextInput"] label p,
 div[data-testid="stSelectbox"] label p,
@@ -268,11 +279,24 @@ def show_metrics(items):
         with cols[i]:
             st.markdown(metric_html(label, value, unit), unsafe_allow_html=True)
 
+def show_bar(title, labels, values, colors, y_title="Units"):
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=labels, y=values, marker_color=colors))
+    fig.update_layout(
+        title=title,
+        xaxis_title="Metric",
+        yaxis_title=y_title,
+        template="plotly_white",
+        height=420,
+        margin=dict(l=20, r=20, t=60, b=20),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
 if "module" not in st.session_state:
     st.session_state.module = None
 
 MODULES = [
-    ("📊", "Mean, Variance & SD", "Sales Summary", "stats"),
+    ("📊", "Mean, Variance & SD", "Demand statistics", "stats"),
     ("🛡️", "Safety Stock", "Extra goods kept", "ss"),
     ("🔄", "Reorder Point", "When to buy more", "rop"),
     ("📦", "EOQ", "How much more to buy", "eoq"),
@@ -329,20 +353,25 @@ elif mod == "stats":
 
 Simple meaning:
 The average number of items sold in a day.
+
 Example:
 If you sold 40, 50, and 60 bags in three days:
 Average sales = (40 + 50 + 60) ÷ 3 = 50 bags
 
 Variance (How Different Sales Are)
+
 Simple meaning:
 Shows how much sales change from day to day.
+
 Example:
 If you sell around 50 bags every day, variance is small.
 If some days you sell 20 bags and other days 100 bags, variance is large.
 
 Standard Deviation (Typical Change in Sales)
+
 Simple meaning:
 Shows how far sales usually move away from the average.
+
 Think of it as:
 Small number = sales are predictable.
 Large number = sales go up and down a lot."""
@@ -355,36 +384,27 @@ Large number = sales go up and down a lot."""
 
     with col2:
         if calculate:
-            try:
-                data = [float(x.strip()) for x in raw.split(",") if x.strip()]
-                if len(data) < 2:
-                    st.error("Please enter at least 2 values.")
-                else:
-                    n = len(data)
-                    mean = np.mean(data)
-                    variance = np.var(data)
-                    std_dev = np.std(data)
-                    st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
-                    show_metrics([
-                        ("Mean", f"{mean:.2f}", "units/day"),
-                        ("Variance", f"{variance:.2f}", "units²"),
-                        ("Standard deviation", f"{std_dev:.2f}", "units/day"),
-                        ("Observations", str(n), "data points"),
-                    ])
-                    st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
-                    sample_str = " + ".join(f"{x:.0f}" for x in data[:4])
-                    if n > 4:
-                        sample_str += " + ..."
-                    st.markdown(formula_html([
-                        ("Mean = Σx / n", f"{sample_str} / {n} = {mean:.2f}"),
-                        ("Variance = Σ(x−Mean)² / n", f"{variance:.4f}"),
-                        ("Standard deviation = √Variance", f"√{variance:.2f} = {std_dev:.2f}"),
-                        ("Demand follows", f"N({mean:.2f}, {variance:.2f})"),
-                    ]), unsafe_allow_html=True)
-            except Exception as e:
-                st.error(f"Error parsing values: {e}")
-        else:
-            st.info("👈 Enter your demand values and click **Calculate Statistics**")
+            data = [float(x.strip()) for x in raw.split(",") if x.strip()]
+            mean = np.mean(data)
+            variance = np.var(data)
+            std_dev = np.std(data)
+            st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
+            show_metrics([
+                ("Mean", f"{mean:.2f}", "units/day"),
+                ("Variance", f"{variance:.2f}", "units²"),
+                ("Standard deviation", f"{std_dev:.2f}", "units/day"),
+                ("Observations", str(len(data)), "data points"),
+            ])
+            show_bar("Demand Statistics", ["Mean", "Variance", "Std Dev"], [mean, variance, std_dev], ["#3b82f6", "#f59e0b", "#10b981"], "Value")
+            st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
+            sample_str = " + ".join(f"{x:.0f}" for x in data[:4])
+            if len(data) > 4:
+                sample_str += " + ..."
+            st.markdown(formula_html([
+                ("Mean = Σx / n", f"{sample_str} / {len(data)} = {mean:.2f}"),
+                ("Variance = Σ(x−Mean)² / n", f"{variance:.4f}"),
+                ("Standard deviation = √Variance", f"√{variance:.2f} = {std_dev:.2f}"),
+            ]), unsafe_allow_html=True)
 
 elif mod == "ss":
     st.markdown('<h3 style="color:#000000 !important;">Safety Stock</h3>', unsafe_allow_html=True)
@@ -404,13 +424,14 @@ elif mod == "ss":
             st.markdown('<div class="section-header">Results</div>', unsafe_allow_html=True)
             show_metrics([
                 ("Safety stocks", f"{safety_stocks:.1f}", "units"),
-                ("Standard deviation × √Lead time", f"{sigma_l:.2f}", "units"),
+                ("Std dev × √Lead time", f"{sigma_l:.2f}", "units"),
                 ("Service level", f"{pct}%", ""),
             ])
+            show_bar("Safety Stock Breakdown", ["Std dev × √L", "Safety stocks"], [sigma_l, safety_stocks], ["#60a5fa", "#34d399"], "Units")
             st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
             st.markdown(formula_html([
-                ("Standard deviation × √lead time", f"{sigma} × √{lead} = {sigma_l:.2f}"),
-                ("Safety stocks = z × Standard deviation × √lead time", f"{z} × {sigma_l:.2f} = {safety_stocks:.1f} units"),
+                ("Std dev × √lead time", f"{sigma} × √{lead} = {sigma_l:.2f}"),
+                ("Safety stocks = z × Std dev × √lead time", f"{z} × {sigma_l:.2f} = {safety_stocks:.1f} units"),
             ]), unsafe_allow_html=True)
 
 elif mod == "rop":
@@ -436,6 +457,7 @@ elif mod == "rop":
                 ("Safety stocks", f"{safety_stocks:.1f}", "units"),
                 ("Demand during lead time", f"{demand_during_lead_time:.1f}", "units"),
             ])
+            show_bar("Reorder Point Breakdown", ["Demand during lead time", "Safety stocks", "Reorder point"], [demand_during_lead_time, safety_stocks, reorder_point], ["#3b82f6", "#34d399", "#8b5cf6"], "Units")
             st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
             st.markdown(formula_html([
                 ("Demand during lead time", f"{mu} × {lead} = {demand_during_lead_time:.1f}"),
@@ -468,6 +490,7 @@ elif mod == "eoq":
                 ("Orders per year", f"{orders:.1f}", "orders"),
                 ("Total cost", f"₦{total_cost:,.0f}", ""),
             ])
+            show_bar("EOQ and Annual Demand", ["EOQ", "Annual demand"], [eoq, D], ["#f97316", "#3b82f6"], "Units")
             st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
             st.markdown(formula_html([
                 ("Annual demand", f"{d} × 365 = {D:,.0f}"),
@@ -506,6 +529,7 @@ elif mod == "tc":
                 ("Shortage cost", f"₦{shortage_cost:,.0f}", ""),
                 ("Total cost", f"₦{total_cost:,.0f}", ""),
             ])
+            show_bar("Cost Breakdown", ["Holding", "Ordering", "Shortage"], [holding_cost, ordering_cost, shortage_cost], ["#10b981", "#3b82f6", "#ef4444"], "₦")
             st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
             st.markdown(formula_html([
                 ("Economic order quantity", f"{eoq:,.0f} units"),
@@ -543,6 +567,7 @@ elif mod == "sl":
                 ("Safety stocks", f"{safety_stocks:.1f}", "units"),
                 ("z factor", f"{z:.2f}", ""),
             ])
+            show_bar("Service Level and Safety Stock", ["Service level %", "Safety stocks"], [pct, safety_stocks], ["#8b5cf6", "#34d399"], "Value")
             st.markdown('<div class="section-header">Formula trace</div>', unsafe_allow_html=True)
             st.markdown(formula_html([
                 ("Safety stocks", f"{z} × ({sigma} × √{lead}) = {safety_stocks:.1f} units"),
@@ -588,6 +613,7 @@ elif mod == "all":
                 ("Reorder point", f"{reorder_point_all:.1f}", "units"),
                 ("Total annual cost", f"₦{total_cost_all:,.0f}", ""),
             ])
+            show_bar("Master Summary", ["EOQ", "Safety stock", "ROP", "Total cost"], [eoq_all, safety_stocks_all, reorder_point_all, total_cost_all], ["#f97316", "#10b981", "#8b5cf6", "#3b82f6"], "Value")
             st.markdown('<div class="section-header">Operations Breakdown</div>', unsafe_allow_html=True)
             show_metrics([
                 ("Annual demand volume", f"{D_all:,.0f}", "units/year"),
